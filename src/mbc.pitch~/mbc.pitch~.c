@@ -61,6 +61,7 @@ typedef struct _pitch
 //// standard set
 void *pitch_new(t_symbol *s, long argc, t_atom *argv);
 void pitch_free(t_pitch *x);
+void pitch_free_arrays(t_pitch *x);
 void pitch_assist(t_pitch *x, void *b, long m, long a, char *s);
 
 void pitch_dsp(t_pitch *x, t_signal **sp, short *count);
@@ -305,16 +306,47 @@ void pitch_frame_rate(t_pitch *x, double frame_rate) {
 
 void pitch_free(t_pitch *x) {
 	dsp_free((t_pxobject *) x);
-	
-	sysmem_freeptr(x->p_padframe_buff);
-	sysmem_freeptr(x->p_R);
-	sysmem_freeptr(x->p_D);
-	sysmem_freeptr(x->p_Dp);
-	sysmem_freeptr(x->p_M);
-	sysmem_freeptr(x->p_tempVec);
-	sysmem_freeptr(x->p_fftSplitTemp.realp);
-	sysmem_freeptr(x->p_fftSplitTemp.imagp);
-	vDSP_destroy_fftsetup(x->p_fftsetup);
+	pitch_free_arrays(x);
+}
+
+void pitch_free_arrays(t_pitch *x)
+{
+	if (x->p_padframe_buff) {
+		sysmem_freeptr(x->p_padframe_buff);
+		x->p_padframe_buff = NULL;
+	}
+	if (x->p_R) {
+		sysmem_freeptr(x->p_R);
+		x->p_R = NULL;
+	}
+	if (x->p_D) {
+		sysmem_freeptr(x->p_D);
+		x->p_D = NULL;
+	}
+	if (x->p_Dp) {
+		sysmem_freeptr(x->p_Dp);
+		x->p_Dp = NULL;
+	}
+	if (x->p_M) {
+		sysmem_freeptr(x->p_M);
+		x->p_M = NULL;
+	}
+	if (x->p_tempVec) {
+		sysmem_freeptr(x->p_tempVec);
+		x->p_tempVec = NULL;
+	}
+	if (x->p_fftSplitTemp.realp) {
+		sysmem_freeptr(x->p_fftSplitTemp.realp);
+		x->p_fftSplitTemp.realp = NULL;
+	}
+	if (x->p_fftSplitTemp.imagp) {
+		sysmem_freeptr(x->p_fftSplitTemp.imagp);
+		x->p_fftSplitTemp.imagp = NULL;
+	}
+	if (x->p_fftsetup) {
+		vDSP_destroy_fftsetup(x->p_fftsetup);
+		x->p_fftsetup = NULL;
+	}
 }
 
 void pitch_init(t_pitch *x) {
@@ -332,6 +364,9 @@ void pitch_init(t_pitch *x) {
 	x->p_hop_idx = 0;
 	x->p_log2nfft = (int) NLOG2(2 * x->p_frame_size);
 	x->p_maxnfft = POW2(x->p_log2nfft);
+	
+	// free memory if needed
+	pitch_free_arrays(x);
 	
 	//allocate memory
 	x->p_padframe_buff = (t_float *) sysmem_newptrclear( x->p_maxnfft * sizeof(t_float));
