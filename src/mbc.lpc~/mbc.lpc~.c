@@ -57,6 +57,7 @@ typedef struct _lpc
 //// standard set
 void *lpc_new(long order, long framerate, long preemph);
 void lpc_free(t_lpc *x);
+void lpc_free_arrays(t_lpc *x);
 void lpc_assist(t_lpc *x, void *b, long m, long a, char *s);
 
 void lpc_dsp(t_lpc *x, t_signal **sp, short *count);
@@ -329,26 +330,8 @@ void lpc_assist(t_lpc *x, void *b, long msg, long arg, char *dst)
 }
 
 void lpc_free(t_lpc *x) {
-	int i;
-	
 	dsp_free((t_pxobject *) x);
-	sysmem_freeptr(x->l_frame_buff);
-	sysmem_freeptr(x->l_winframe_buff);
-	sysmem_freeptr(x->l_outCoeff_buff);
-	sysmem_freeptr(x->l_outError_buff);
-	sysmem_freeptr(x->l_outParcor_buff);
-	sysmem_freeptr(x->l_win);
-	sysmem_freeptr(x->l_R);
-	sysmem_freeptr(x->l_W);
-	sysmem_freeptr(x->l_E);
-	sysmem_freeptr(x->l_K);
-	for(i=0; i<MAX_ORDER; i++) {
-		sysmem_freeptr(x->l_A[i]);
-	}
-	sysmem_freeptr(x->l_A);
-	sysmem_freeptr(x->l_fftSplitTemp.realp);
-	sysmem_freeptr(x->l_fftSplitTemp.imagp);
-	vDSP_destroy_fftsetup(x->l_fftsetup);
+	lpc_free_arrays(x);
 }
 
 void lpc_preemph(t_lpc *x, int n) {
@@ -386,6 +369,9 @@ void lpc_init(t_lpc *x) {
 	x->l_log2nfft = (int) NLOG2(x->l_frame_size+MAX_ORDER+1);
 	x->l_maxnfft = POW2(x->l_log2nfft);
 	
+	// free memory if needed
+	lpc_free_arrays(x);
+	
 	//allocate memory
 	x->l_frame_buff = (t_float *) sysmem_newptrclear( x->l_frame_size * sizeof(t_float));
 	x->l_winframe_buff = (t_float *) sysmem_newptrclear( x->l_maxnfft * sizeof(t_float));
@@ -415,6 +401,75 @@ void lpc_init(t_lpc *x) {
 	x->l_fftsetup = vDSP_create_fftsetup(x->l_log2nfft,FFT_RADIX2);
 	if (!x->l_fftsetup) error("mbc.lpc~: not enough available memory");
 	
+}
+
+void lpc_free_arrays(t_lpc *x)
+{
+	int i;
+	
+	if (x->l_frame_buff) {
+		sysmem_freeptr(x->l_frame_buff);
+		x->l_frame_buff = NULL;
+	}
+	if (x->l_winframe_buff) {
+		sysmem_freeptr(x->l_winframe_buff);
+		x->l_winframe_buff = NULL;
+	}
+	if (x->l_outCoeff_buff) {
+		sysmem_freeptr(x->l_outCoeff_buff);
+		x->l_outCoeff_buff = NULL;
+	}
+	if (x->l_outError_buff) {
+		sysmem_freeptr(x->l_outError_buff);
+		x->l_outError_buff = NULL;
+	}
+	if (x->l_outParcor_buff) {
+		sysmem_freeptr(x->l_outParcor_buff);
+		x->l_outParcor_buff = NULL;
+	}
+	if (x->l_win) {
+		sysmem_freeptr(x->l_win);
+		x->l_win = NULL;
+	}
+	if (x->l_R) {
+		sysmem_freeptr(x->l_R);
+		x->l_R = NULL;
+	}
+	if (x->l_W) {
+		sysmem_freeptr(x->l_W);
+		x->l_W = NULL;
+	}
+	if (x->l_E) {
+		sysmem_freeptr(x->l_E);
+		x->l_E = NULL;
+	}
+	if (x->l_K) {
+		sysmem_freeptr(x->l_K);
+		x->l_K = NULL;
+	}
+	if (x->l_A) {
+		for(i=0; i<MAX_ORDER; i++) {
+			if (x->l_A[i]) {
+				sysmem_freeptr(x->l_A[i]);
+				x->l_A[i] = NULL;
+			}
+		}
+		sysmem_freeptr(x->l_A);
+		x->l_A = NULL;
+	}
+	if (x->l_fftSplitTemp.realp) {
+		sysmem_freeptr(x->l_fftSplitTemp.realp);
+		x->l_fftSplitTemp.realp = NULL;
+	}
+	if (x->l_fftSplitTemp.imagp) {
+		sysmem_freeptr(x->l_fftSplitTemp.imagp);
+		x->l_fftSplitTemp.imagp = NULL;
+	}
+
+	if (x->l_fftsetup) {
+		vDSP_destroy_fftsetup(x->l_fftsetup);
+		x->l_fftsetup = NULL;
+	}
 }
 
 void lpc_hanning(t_lpc *x) {

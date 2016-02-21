@@ -69,6 +69,7 @@ void allpole_order(t_allpole *x, int order);
 void allpole_deemph(t_allpole *x, int deemph); 
 void allpole_init(t_allpole *x);
 void allpole_free(t_allpole *x);
+void allpole_free_arrays(t_allpole *x);
 void allpole_clear(t_allpole *x);
 inline void allpole_highOrdFilter(t_allpole* x, int N, int order, t_float* in, t_float* out);
 inline void allpole_solveForFiltCoefs(t_allpole* x, int order);
@@ -703,21 +704,55 @@ void allpole_init(t_allpole *x) {
 }
 
 void allpole_free(t_allpole *x) {
-	int i;
-
 	dsp_free((t_pxobject *) x);
-	freebytes16((char *)x->a_a, MAX_ORDER * sizeof(t_mbcfloat));
-	freebytes(x->a_aBuff, MAX_ORDER * sizeof(t_mbcfloat));
-	freebytes16((char *)x->a_y, MAX_ORDER * sizeof(t_mbcfloat));
-	freebytes16((char *)x->a_tempVec, MAX_ORDER * sizeof(t_mbcfloat));
-	freebytes(x->a_Ar, MAX_ORDER * sizeof(t_mbcfloat));
-	freebytes(x->a_K, (MAX_ORDER + 1) * sizeof(t_mbcfloat));
-	freebytes(x->a_interpCoeff, (MAX_ORDER + 1) * sizeof(t_mbcfloat));
-	freebytes(x->a_interpInc, (MAX_ORDER + 1) * sizeof(t_mbcfloat));
-	for(i=0; i<MAX_ORDER; i++) {
-		freebytes(x->a_A[i], (MAX_ORDER + 1) * sizeof(t_mbcfloat));
+	allpole_free_arrays(x);
+}
+
+void allpole_free_arrays(t_allpole *x)
+{
+	int i;
+	if (x->a_a) {
+		freebytes16((char *)x->a_a, MAX_ORDER * sizeof(t_mbcfloat));
+		x->a_a = NULL;
 	}
-	freebytes(x->a_A, MAX_ORDER * sizeof(t_mbcfloat*));
+	if (x->a_aBuff) {
+		freebytes(x->a_aBuff, MAX_ORDER * sizeof(t_mbcfloat));
+		x->a_aBuff = NULL;
+	}
+	if (x->a_y) {
+		freebytes16((char *)x->a_y, MAX_ORDER * sizeof(t_mbcfloat));
+		x->a_y = NULL;
+	}
+	if (x->a_tempVec) {
+		freebytes16((char *)x->a_tempVec, MAX_ORDER * sizeof(t_mbcfloat));
+		x->a_tempVec = NULL;
+	}
+	if (x->a_Ar) {
+		freebytes(x->a_Ar, MAX_ORDER * sizeof(t_mbcfloat));
+		x->a_Ar = NULL;
+	}
+	if (x->a_K) {
+		freebytes(x->a_K, (MAX_ORDER + 1) * sizeof(t_mbcfloat));
+		x->a_K = NULL;
+	}
+	if (x->a_interpCoeff) {
+		freebytes(x->a_interpCoeff, (MAX_ORDER + 1) * sizeof(t_mbcfloat));
+		x->a_interpCoeff = NULL;
+	}
+	if (x->a_interpInc) {
+		freebytes(x->a_interpInc, (MAX_ORDER + 1) * sizeof(t_mbcfloat));
+		x->a_interpInc = NULL;
+	}
+	if (x->a_A) {
+		for(i=0; i<MAX_ORDER; i++) {
+			if (x->a_A[i]) {
+				freebytes(x->a_A[i], (MAX_ORDER + 1) * sizeof(t_mbcfloat));
+				x->a_A[i] = NULL;
+			}
+		}
+		freebytes(x->a_A, MAX_ORDER * sizeof(t_mbcfloat*));
+		x->a_A = NULL;
+	}
 }
 
 void allpole_clear(t_allpole *x) {
