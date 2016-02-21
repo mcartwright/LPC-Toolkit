@@ -16,11 +16,13 @@
 typedef struct _coeffDisp 
 {
 	t_pxobject					ob;			// the object itself (t_pxobject in MSP)
-	t_atom* 					c_a;		//filer coefficients
+	t_atom* 					c_a;		//filter coefficients
+	long						c_len;			// length of filter coefficients
 	t_float* 					c_aBuff;	//filter coeff input buffer
 	long 						c_order;
 	int 						c_coeffType;//type of coeffecients: CT_FILTER,CT_AREA
 	int 						c_outMax;
+	void						*c_clock;
 	void* 						c_out;
 } t_coeffDisp;
 
@@ -39,6 +41,7 @@ void coeffDisp_dsp(t_coeffDisp *x, t_signal **sp, short *count);
 t_int *coeffDisp_perf_filter(t_int *w);
 t_int *coeffDisp_perf_area(t_int *w);
 void coeffDisp_order(t_coeffDisp *x, int order);
+void coeffDisp_tick(t_coeffDisp *x);
 void coeffDisp_init(t_coeffDisp *x);
 void coeffDisp_clear(t_coeffDisp *x);
 //////////////////////// global class pointer variable
@@ -110,7 +113,9 @@ t_int *coeffDisp_perf_filter(t_int *w)
 					(x->c_a[i+outMax+1]).a_type = A_FLOAT;
 					(x->c_a[i+outMax+1]).a_w.w_float = -x->c_aBuff[i-1];
 				}
-				outlet_list(x->c_out,0L,((outMax+1)*2),x->c_a);		
+				x->c_len = (outMax + 1) * 2;
+				clock_delay(x->c_clock, 0);
+	
 			}
 		}
 		in_idx++;
@@ -145,13 +150,21 @@ t_int *coeffDisp_perf_area(t_int *w) //TODO: complete correctly (right now it's 
 					(x->c_a[i]).a_type = A_FLOAT;
 					(x->c_a[i]).a_w.w_float = x->c_aBuff[i];
 				}
-				outlet_list(x->c_out,0L,order,x->c_a);		
+				x->c_len = order;
+				clock_delay(x->c_clock, 0);
 			}
 		}
 		in_idx++;
 	}
 	
 	return (w+5);
+}
+
+void coeffDisp_tick(t_coeffDisp *x)
+{
+	if (x->c_len < (MAX_ORDER * 2)) {
+		outlet_list(x->c_out, 0L, x->c_len, x->c_a);
+	}
 }
 
 void coeffDisp_init(t_coeffDisp *x) {
@@ -162,6 +175,7 @@ void coeffDisp_init(t_coeffDisp *x) {
 
 void coeffDisp_free(t_coeffDisp *x) {
 	dsp_free((t_pxobject *) x);
+	object_free(x->c_clock);
 	freebytes(x->c_a, MAX_ORDER * 2 * sizeof(t_atom));
 	freebytes(x->c_aBuff, MAX_ORDER * sizeof(t_float));
 }
@@ -253,6 +267,8 @@ void *coeffDisp_new(t_symbol *s, long argc, t_atom *argv)
 		//get arguments out of gimme list
 		int order = atom_getintarg(0,argc,argv);
 		t_symbol* coeffType = atom_getsymarg(1,argc,argv);
+		
+		x->c_clock = clock_new(x, (method)coeffDisp_tick);
 		
 		//order bounds
 		if (order < 1) {
