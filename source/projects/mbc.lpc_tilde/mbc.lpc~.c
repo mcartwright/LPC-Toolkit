@@ -46,7 +46,7 @@ typedef struct _lpc
 	int 						l_inframe_idx;		//current inframe buffer index
 	int 						l_outframe_idx;		//current outframe buffer index
 	long 						l_v_size;			//vector size
-	float 						l_fs;				//sampling rate
+	double 						l_fs;				//sampling rate
 	int 						l_maxnfft;			//fft length
 	int 						l_log2nfft;			//log2(fft length)
 	FFTSetup 					l_fftsetup;			//FFTSetup for vDSP FFT functions
@@ -60,8 +60,8 @@ void lpc_free(t_lpc *x);
 void lpc_free_arrays(t_lpc *x);
 void lpc_assist(t_lpc *x, void *b, long m, long a, char *s);
 
-void lpc_dsp(t_lpc *x, t_signal **sp, short *count);
-t_int *lpc_perform(t_int *w);
+void lpc_dsp64(t_lpc *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags);
+void lpc_perform(t_lpc *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam);
 
 void lpc_order(t_lpc *x, int n);
 void lpc_preemph(t_lpc *x, int n);
@@ -74,7 +74,7 @@ void lpc_bartlett(t_lpc *x);
 void *lpc_class;
 
 
-int main(void)
+void ext_main(void *r)
 {	
 	// object initialization, note the use of dsp_free for the freemethod, which is required
 	// unless you need to free allocated memory, in which case you should call dsp_free from
@@ -94,7 +94,7 @@ int main(void)
 	
 	c = class_new("mbc.lpc~", (method)lpc_new, (method)lpc_free, (long)sizeof(t_lpc), 0L, A_DEFLONG, A_DEFLONG, A_DEFLONG, 0); //arglist: order, framerate, preemph
 	
-	class_addmethod(c, (method)lpc_dsp, "dsp", A_CANT, 0);
+	class_addmethod(c, (method)lpc_dsp64, "dsp64", A_CANT, 0);
 	class_addmethod(c, (method)lpc_order,"order",A_DEFLONG,0);
 	class_addmethod(c, (method)lpc_preemph,"preemph",A_DEFLONG,0);
 	class_addmethod(c, (method)lpc_assist,"assist",A_CANT,0);
@@ -102,20 +102,17 @@ int main(void)
 	class_dspinit(c);				// new style object version of dsp_initclass();
 	class_register(CLASS_BOX, c);	// register class as a box class
 	lpc_class = c;
-	
-	return 0;
 }
 
-t_int *lpc_perform(t_int *w) 
+void lpc_perform(t_lpc *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam)
 {
-	t_lpc *x = (t_lpc *) (w[1]);
-	t_float *in = (t_float *)(w[2]);
-	t_float *out_error = (t_float *)(w[3]);
-	t_float *out_gain = (t_float *)(w[4]);
-	t_float *out_coeff = (t_float *)(w[5]);
-	t_float *out_parcor = (t_float *)(w[6]);
-	t_float *out_index = (t_float *)(w[7]);
-	int n = (int)(w[8]);
+	double *in = ins[0];
+	double *out_error = outs[0];
+	double *out_gain = outs[1];
+	double *out_coeff = outs[2];
+	double *out_parcor = outs[3];
+	double *out_index = outs[4];
+	long n = sampleframes;
 	int p = x->l_order;
 	int length = x->l_frame_size;
 	int log2nfft = NLOG2(length+p+1);
@@ -139,7 +136,7 @@ t_int *lpc_perform(t_int *w)
 			x->l_x1 = val;
 			in_idx++;
 		}
-		n = (int)(w[8]);
+		n = sampleframes;
 		in_idx = 0;
 	}
 	
@@ -296,19 +293,17 @@ t_int *lpc_perform(t_int *w)
 	
 	x->l_inframe_idx = inframeidx;
 	x->l_outframe_idx = outframeidx;
-
-	return (w+9);
 }
 
-void lpc_dsp(t_lpc *x, t_signal **sp, short *count)
+void lpc_dsp64(t_lpc *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags)
 {
-	if (sp[0]->s_n != x->l_v_size || sp[0]->s_sr != x->l_fs) {
-		x->l_v_size = sp[0]->s_n;
-		x->l_fs = sp[0]->s_sr;
+	if (maxvectorsize != x->l_v_size || samplerate != x->l_fs) {
+		x->l_v_size = maxvectorsize;
+		x->l_fs = samplerate;
 		lpc_init(x);
 	}
 	
-	dsp_add(lpc_perform, 8, x, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, sp[3]->s_vec, sp[4]->s_vec, sp[5]->s_vec, sp[0]->s_n);
+    object_method(dsp64, gensym("dsp_add64"), x, lpc_perform, 0, NULL);
 }
 
 void lpc_assist(t_lpc *x, void *b, long msg, long arg, char *dst)
@@ -514,7 +509,7 @@ void *lpc_new(long order, long framerate, long preemph)
 		framerate = DEFAULT_FRAMERATE;
 	}
 	
-	if (x = (t_lpc *)object_alloc(lpc_class)) {
+    if ((x = (t_lpc *)object_alloc(lpc_class))) {
 		dsp_setup((t_pxobject *)x,1);
 		outlet_new((t_pxobject *)x, "signal");
 		outlet_new((t_pxobject *)x, "signal");

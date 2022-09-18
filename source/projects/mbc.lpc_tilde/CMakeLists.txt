@@ -20,5 +20,7 @@ add_library(
 	MODULE
 	${PROJECT_SRC}
 )
+find_library(ACCELERATE Accelerate REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${ACCELERATE})
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../max-sdk-base/script/max-posttarget.cmake)
