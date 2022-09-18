@@ -38,8 +38,8 @@ typedef struct _allpole
 	long 						a_order;
 	long 						a_deemph;
 	int 						a_coeffType;	//type of coeffecients: CT_PARCOR,CT_FILTER,CT_AREA
-	float 						a_fs;			//sampling rate
-	int 						a_vsize;		//vector size
+	double 						a_fs;			//sampling rate
+	long 						a_vsize;		//vector size
 } t_allpole;
 
 enum coeffTypes 
@@ -57,11 +57,11 @@ void allpole_assist(t_allpole *x, void *b, long m, long a, char *s);
 
 void allpole_float(t_allpole *x, double f);
 
-void allpole_dsp(t_allpole *x, t_signal **sp, short *count);
+void allpole_dsp64(t_allpole *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags);
 //t_int *allpole_perf_filter(t_int *w);
 //t_int *allpole_perf_area(t_int *w);
-t_int *allpole_perf_parcor(t_int *w);
-t_int *allpole_perf_parcorI(t_int *w);
+void allpole_perf_parcor(t_allpole *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam);
+void allpole_perf_parcorI(t_allpole *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam);
 //t_int *allpole_perf_filterI(t_int *w);
 //t_int *allpole_perf_areaI(t_int *w);
 void allpole_interp(t_allpole *x, t_floatarg interp);
@@ -71,15 +71,15 @@ void allpole_init(t_allpole *x);
 void allpole_free(t_allpole *x);
 void allpole_free_arrays(t_allpole *x);
 void allpole_clear(t_allpole *x);
-inline void allpole_highOrdFilter(t_allpole* x, int N, int order, t_float* in, t_float* out);
-inline void allpole_solveForFiltCoefs(t_allpole* x, int order);
-inline void allpole_deemphFilter(t_allpole *x, int N, float* vec);
+static void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out);
+static void allpole_solveForFiltCoefs(t_allpole* x, int order);
+static void allpole_deemphFilter(t_allpole *x, int N, double* vec);
 
 //////////////////////// global class pointer variable
 void *allpole_class;
 
 
-int main(void)
+void ext_main(void *r)
 {	
 	// object initialization, note the use of dsp_free for the freemethod, which is required
 	// unless you need to free allocated memory, in which case you should call dsp_free from
@@ -99,7 +99,7 @@ int main(void)
 	
 	c = class_new("mbc.allpole~", (method)allpole_new, (method)allpole_free, (long)sizeof(t_allpole), 0L, A_GIMME, 0);
 
-	class_addmethod(c, (method)allpole_dsp, "dsp", A_CANT, 0);
+	class_addmethod(c, (method)allpole_dsp64, "dsp64", A_CANT, 0);
 	class_addmethod(c, (method)allpole_interp,"interp",A_DEFFLOAT,0);
 	class_addmethod(c, (method)allpole_order,"order",A_DEFLONG,0);
 	class_addmethod(c, (method)allpole_clear,"clear",0);
@@ -109,8 +109,6 @@ int main(void)
 	class_dspinit(c);				// new style object version of dsp_initclass();
 	class_register(CLASS_BOX, c);	// register class as a box class
 	allpole_class = c;
-	
-	return 0;
 }
 
 //perform for FILTER COEFFICIENTS, INTERPOLATION OFF
@@ -180,15 +178,15 @@ int main(void)
 }*/
 
 //perform for PARCOR COEFFICIENTS, INTERPOLATION OFF
-t_int *allpole_perf_parcor(t_int *w)
+void allpole_perf_parcor(t_allpole *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam)
 {
-	t_float *in = (t_float *)(w[1]);
-	t_float *coeffIn = (t_float *)(w[2]);
-	t_float *coeffIdxIn = (t_float *)(w[3]);
-	t_float *G_n = (t_float *)(w[4]);
-	t_allpole *x = (t_allpole *)(w[5]);
-	t_float *out = (t_float *)(w[6]);
-	int N = (int)(w[7]);
+	double *in = ins[0];
+	double *coeffIn = ins[1];
+	double *coeffIdxIn = ins[2];
+	double *G_n = ins[3];
+    
+	double *out = outs[0];
+    long N = sampleframes;
 	int order = x->a_order;
 	int i, n;
 	
@@ -224,19 +222,17 @@ t_int *allpole_perf_parcor(t_int *w)
 	{
 		allpole_deemphFilter(x, N, out);
 	}
-	
-	return (w+8);
 }
 
-t_int *allpole_perf_parcorI(t_int *w)
+void allpole_perf_parcorI(t_allpole *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam)
 {
-	t_float *in = (t_float *)(w[1]);
-	t_float *coeffIn = (t_float *)(w[2]);
-	t_float *coeffIdxIn = (t_float *)(w[3]);
-	t_float *G_n = (t_float *)(w[4]);
-	t_allpole *x = (t_allpole *)(w[5]);
-	t_float *out = (t_float *)(w[6]);
-	int N = (int)(w[7]);
+	double *in = ins[0];
+	double *coeffIn = ins[1];
+	double *coeffIdxIn = ins[2];
+	double *G_n = ins[3];
+	
+	double *out = outs[0];
+	int N = sampleframes;
 	int order = x->a_order;
 	int i, n;
 	float interpDiv; //interpolation denominator
@@ -289,10 +285,7 @@ t_int *allpole_perf_parcorI(t_int *w)
 	if (x->a_deemph) 
 	{
 		allpole_deemphFilter(x, N, out);
-	}	
-	
-	
-	return (w+8);
+	}
 }
 
 /*
@@ -686,10 +679,10 @@ t_int *allpole_perf_parcor(t_int *w)
 void allpole_init(t_allpole *x) {
 	int i;
 	
-	x->a_a = (t_mbcfloat *) getbytes16( MAX_ORDER * sizeof(t_mbcfloat));
+	x->a_a = (t_mbcfloat *) getbytes( MAX_ORDER * sizeof(t_mbcfloat));
 	x->a_aBuff = (t_mbcfloat *) getbytes( MAX_ORDER * sizeof(t_mbcfloat));
-	x->a_y = (t_mbcfloat *) getbytes16( MAX_ORDER * sizeof(t_mbcfloat));
-	x->a_tempVec = (t_mbcfloat *) getbytes16( MAX_ORDER * sizeof(t_mbcfloat));
+	x->a_y = (t_mbcfloat *) getbytes( MAX_ORDER * sizeof(t_mbcfloat));
+	x->a_tempVec = (t_mbcfloat *) getbytes( MAX_ORDER * sizeof(t_mbcfloat));
 	x->a_Ar = (t_mbcfloat *) getbytes( MAX_ORDER * sizeof(t_mbcfloat));
 	x->a_K = (t_mbcfloat *) getbytes( (MAX_ORDER + 1) * sizeof(t_mbcfloat));
 	x->a_interpCoeff = (t_mbcfloat *) getbytes( (MAX_ORDER + 1) * sizeof(t_mbcfloat));
@@ -712,7 +705,7 @@ void allpole_free_arrays(t_allpole *x)
 {
 	int i;
 	if (x->a_a) {
-		freebytes16((char *)x->a_a, MAX_ORDER * sizeof(t_mbcfloat));
+		freebytes((char *)x->a_a, MAX_ORDER * sizeof(t_mbcfloat));
 		x->a_a = NULL;
 	}
 	if (x->a_aBuff) {
@@ -720,11 +713,11 @@ void allpole_free_arrays(t_allpole *x)
 		x->a_aBuff = NULL;
 	}
 	if (x->a_y) {
-		freebytes16((char *)x->a_y, MAX_ORDER * sizeof(t_mbcfloat));
+		freebytes((char *)x->a_y, MAX_ORDER * sizeof(t_mbcfloat));
 		x->a_y = NULL;
 	}
 	if (x->a_tempVec) {
-		freebytes16((char *)x->a_tempVec, MAX_ORDER * sizeof(t_mbcfloat));
+		freebytes((char *)x->a_tempVec, MAX_ORDER * sizeof(t_mbcfloat));
 		x->a_tempVec = NULL;
 	}
 	if (x->a_Ar) {
@@ -781,11 +774,11 @@ void allpole_clear(t_allpole *x) {
 
 // this function is called when the DAC is enabled, and "registers" a function
 // for the signal chain. in this case, "allpole_perform"
-void allpole_dsp(t_allpole *x, t_signal **sp, short *count)
+void allpole_dsp64(t_allpole *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags)
 {
 	//NOTE: need to specify parcor, filter, or area perform string !!!!!!
-	x->a_fs = sp[0]->s_sr;
-	x->a_vsize = sp[0]->s_n;
+	x->a_fs = samplerate;
+	x->a_vsize = maxvectorsize;
 	
 	allpole_clear(x);
 	
@@ -796,7 +789,7 @@ void allpole_dsp(t_allpole *x, t_signal **sp, short *count)
 				//break;
 			
 			case CT_PARCOR:
-				dsp_add(allpole_perf_parcorI, 7, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, sp[3]->s_vec, x, sp[4]->s_vec, sp[0]->s_n);
+                object_method(dsp64, gensym("dsp_add64"), x, allpole_perf_parcorI);
 				break;
 				
 			case CT_AREA:
@@ -814,7 +807,7 @@ void allpole_dsp(t_allpole *x, t_signal **sp, short *count)
 				//break;
 			
 			case CT_PARCOR:
-				dsp_add(allpole_perf_parcor, 7, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, sp[3]->s_vec, x, sp[4]->s_vec, sp[0]->s_n);
+                object_method(dsp64, gensym("dsp_add64"), x, allpole_perf_parcor);
 				break;
 				
 			case CT_AREA:
@@ -907,7 +900,7 @@ void *allpole_new(t_symbol *s, long argc, t_atom *argv)
 		return NULL;
 	}
 	
-	if (x = (t_allpole *)object_alloc(allpole_class)) {
+	if ((x = (t_allpole *)object_alloc(allpole_class))) {
 		dsp_setup((t_pxobject *)x, 1);	// MSP inlets: arg is # of inlets and is REQUIRED! 
 										// use 0 if you don't need inlets
 		
@@ -981,7 +974,7 @@ void *allpole_new(t_symbol *s, long argc, t_atom *argv)
 	}
 	return (x);
 }
-inline void allpole_deemphFilter(t_allpole *x, int N, float* vec)
+void allpole_deemphFilter(t_allpole *x, int N, double* vec)
 {
 	int n;
 	
@@ -997,7 +990,7 @@ inline void allpole_deemphFilter(t_allpole *x, int N, float* vec)
 	x->a_y1 = y1;
 }
 
-inline void allpole_solveForFiltCoefs(t_allpole* x, int order)
+void allpole_solveForFiltCoefs(t_allpole* x, int order)
 {
 	int i, i1, ji, j;
 	
@@ -1023,7 +1016,7 @@ inline void allpole_solveForFiltCoefs(t_allpole* x, int order)
 }
 
 #if defined(MBC_VDSP)
-inline void allpole_highOrdFilter(t_allpole* x, int N, int order, t_float* in, t_float* out)
+void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out)
 {
 	int n, i;
 	t_mbcfloat val;
@@ -1040,7 +1033,7 @@ inline void allpole_highOrdFilter(t_allpole* x, int N, int order, t_float* in, t
 	}
 }
 #else
-inline void allpole_highOrdFilter(t_allpole* x, int N, int order, t_float* in, t_float* out)
+void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out)
 {
 	int n, i;
 	t_mbcfloat val;
