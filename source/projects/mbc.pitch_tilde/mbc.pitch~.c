@@ -42,7 +42,7 @@ typedef struct _pitch
 	int 						p_inframe_idx;		//current inframe buffer index
 	int 						p_hop_idx;			//hop index
 	long 						p_v_size;			//vector size
-	float 						p_fs;				//sampling rate
+	double 						p_fs;				//sampling rate
 	int 						p_maxnfft;			//fft length
 	int 						p_log2nfft;			//log2(fft length)
 	float 						p_thresh;			//detection threshold
@@ -64,8 +64,8 @@ void pitch_free(t_pitch *x);
 void pitch_free_arrays(t_pitch *x);
 void pitch_assist(t_pitch *x, void *b, long m, long a, char *s);
 
-void pitch_dsp(t_pitch *x, t_signal **sp, short *count);
-t_int *pitch_perform(t_int *w);
+void pitch_dsp64(t_pitch *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags);
+void pitch_perform(t_pitch *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam);
 void pitch_init(t_pitch *x);
 void pitch_thresh(t_pitch *x, double thresh);
 void pitch_frame_rate(t_pitch *x, double thresh);
@@ -74,7 +74,7 @@ void pitch_frame_rate(t_pitch *x, double thresh);
 void *pitch_class;
 
 
-int main(void)
+void ext_main(void *r)
 {	
 	// object initialization, note the use of dsp_free for the freemethod, which is required
 	// unless you need to free allocated memory, in which case you should call dsp_free from
@@ -94,7 +94,7 @@ int main(void)
 	
 	c = class_new("mbc.pitch~", (method)pitch_new, (method)pitch_free, (long)sizeof(t_pitch), 0L, A_GIMME, 0);
 	
-	class_addmethod(c, (method)pitch_dsp,		"dsp",		A_CANT, 0);
+	class_addmethod(c, (method)pitch_dsp64,		"dsp64",		A_CANT, 0);
 	class_addmethod(c, (method)pitch_assist,	"assist",	A_CANT, 0);
 	class_addmethod(c, (method)pitch_thresh,		"thresh",	A_FLOAT,0);
 	class_addmethod(c, (method)pitch_frame_rate,	"frame_rate",A_FLOAT,0);
@@ -102,14 +102,11 @@ int main(void)
 	class_dspinit(c);				// new style object version of dsp_initclass();
 	class_register(CLASS_BOX, c);	// register class as a box class
 	pitch_class = c;
-	
-	return 0;
 }
 
-t_int *pitch_perform(t_int *w) {	
-	t_float *in = (t_float *)(w[1]);
-	t_pitch *x = (t_pitch *) (w[2]);
-	int n = (int)(w[3]);
+void pitch_perform(t_pitch *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam) {
+	double *in = ins[0];
+	long n = sampleframes;
 	int length = x->p_frame_size;
 	int hop_size = x->p_hop_size;
 	int log2nfft = NLOG2(2*length);
@@ -255,19 +252,17 @@ t_int *pitch_perform(t_int *w) {
 	
 	x->p_inframe_idx = inframeidx;
 	x->p_hop_idx = hopidx;
-
-	return (w+4);
 }
 
-void pitch_dsp(t_pitch *x, t_signal **sp, short *count)
+void pitch_dsp64(t_pitch *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags)
 {
-	if (sp[0]->s_n != x->p_v_size || sp[0]->s_sr != x->p_fs) {
-		x->p_v_size = sp[0]->s_n;
-		x->p_fs = sp[0]->s_sr;
+	if (maxvectorsize != x->p_v_size || samplerate != x->p_fs) {
+		x->p_v_size = maxvectorsize;
+		x->p_fs = samplerate;
 		pitch_init(x);
 	}
-	
-	dsp_add(pitch_perform, 3, sp[0]->s_vec, x, sp[0]->s_n);
+
+    object_method(dsp64, gensym("dsp_add64"), x, pitch_perform, 0, NULL);
 }
 
 void pitch_assist(t_pitch *x, void *b, long msg, long arg, char *dst)
@@ -387,7 +382,7 @@ void *pitch_new(t_symbol *s, long argc, t_atom *argv)
 {
 	t_pitch *x = NULL;
 
-	if (x = (t_pitch *)object_alloc(pitch_class)) {
+    if ((x = (t_pitch *)object_alloc(pitch_class))) {
 		dsp_setup((t_pxobject *)x,1);
 		x->p_clarityOut = floatout(x);
 		x->p_freqOut = floatout(x);
