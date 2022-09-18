@@ -1,8 +1,0 @@
-This a collection of Max/MSP objects for performing linear prediction coding.
-
-Please copy the contents of the lpctoolkit-help folder into the msp-help folder in your Cycling74 directory, and the lpctoolkit-externals files into the msp-externals folder in your Cycling74 directory.
-
-For more information please visit http://markcartwright.com/projects/lpc-toolkit
-
-Mark Cartwright
-mcartwright@gmail.com
