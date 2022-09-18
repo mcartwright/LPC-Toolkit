@@ -46,11 +46,13 @@ void *blit_new(t_symbol *s, long argc, t_atom *argv);
 void blit_free(t_blit *x);
 void blit_assist(t_blit *x, void *b, long m, long a, char *s);
 
-void blit_dsp(t_blit *x, t_signal **sp, short *count);
-t_int *blit_sigperf(t_int *w);		//signal frequency input - bandlimited
-t_int *blit_fltperf(t_int *w);		//float frequency input - bandlimited
-t_int *blit_sigperf_a(t_int *w);	//signal frequency input - aliased
-t_int *blit_fltperf_a(t_int *w);	//float frequency input - aliased
+void blit_dsp64(t_blit *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags);
+
+void blit_sigperf(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam); //signal frequency input - bandlimited
+void blit_fltperf(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam);		//float frequency input - bandlimited
+void blit_sigperf_a(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam);	//signal frequency input - aliased
+void blit_fltperf_a(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam);	//float frequency input - aliased
+
 void blit_float(t_blit *x, double f);
 void blit_int(t_blit *x, long n);
 void blit_sincGen(t_blit *x);
@@ -59,7 +61,7 @@ void blit_winGen(double *win, long N);
 void *blit_class;
 
 
-int main(void)
+void ext_main(void *r)
 {	
 	// object initialization, note the use of dsp_free for the freemethod, which is required
 	// unless you need to free allocated memory, in which case you should call dsp_free from
@@ -81,23 +83,20 @@ int main(void)
 	
 	class_addmethod(c, (method)blit_float,		"float",	A_FLOAT, 0);
 	class_addmethod(c, (method)blit_int, "int", A_LONG, 0);
-	class_addmethod(c, (method)blit_dsp,		"dsp",		A_CANT, 0);
+	class_addmethod(c, (method)blit_dsp64,		"dsp64",		A_CANT, 0);
 	class_addmethod(c, (method)blit_assist,	"assist",	A_CANT, 0);
 	
 	class_dspinit(c);				// new style object version of dsp_initclass();
 	class_register(CLASS_BOX, c);	// register class as a box class
 	blit_class = c;
-	
-	return 0;
 }
 
-t_int *blit_sigperf(t_int *w) {
+void blit_sigperf(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam) {
 	int i;
 
-	t_float *pinc = (t_float *)(w[1]);
-	t_blit *x = (t_blit *)(w[2]);
-	t_float *out = (t_float *)(w[3]);
-	int n = (int)(w[4]);
+	double *pinc = ins[0];
+	double *out = outs[0];
+	long n = sampleframes;
 	float thresh = x->b_fs;
 	double phase = x->b_phase;
 	float phasen1 = phase;
@@ -145,17 +144,14 @@ t_int *blit_sigperf(t_int *w) {
 	}
 	
 	x->b_phase = phase;
-	
-	return (w+5);
 }
 
 
-t_int *blit_fltperf(t_int *w) {
+void blit_fltperf(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam) {
 	int i;
 
-	t_blit *x = (t_blit *)(w[1]);
-	t_float *out = (t_float *)(w[2]);
-	int n = (int)(w[3]);
+	double *out = outs[0];
+	long n = sampleframes;
 	float thresh = x->b_fs;
 	double phase = x->b_phase;
 	float phasen1 = phase;
@@ -204,15 +200,12 @@ t_int *blit_fltperf(t_int *w) {
 	}
 	
 	x->b_phase = phase;
-	
-	return (w+4);
 }
 
-t_int *blit_sigperf_a(t_int *w) {
-	t_float *pinc = (t_float *)(w[1]);
-	t_blit *x = (t_blit *)(w[2]);
-	t_float *out = (t_float *)(w[3]);
-	int n = (int)(w[4]);
+void blit_sigperf_a(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam) {
+	double *pinc = ins[0];
+	double *out = outs[0];
+	long n = sampleframes;
 	float thresh = x->b_fs;
 	double phase = x->b_phase;
 		
@@ -230,15 +223,12 @@ t_int *blit_sigperf_a(t_int *w) {
 	}
 	
 	x->b_phase = phase;
-	
-	return (w+5);
 }
 
 
-t_int *blit_fltperf_a(t_int *w) {
-	t_blit *x = (t_blit *)(w[1]);
-	t_float *out = (t_float *)(w[2]);
-	int n = (int)(w[3]);
+void blit_fltperf_a(t_blit *x, t_object *dsp64, double **ins, long numins, double **outs, long numouts, long sampleframes, long flags, void *userparam) {
+	double *out = outs[0];
+	long n = sampleframes;
 	float thresh = x->b_fs;
 	double phase = x->b_phase;
 	float pinc = x->b_pinc;
@@ -256,8 +246,6 @@ t_int *blit_fltperf_a(t_int *w) {
 	}
 	
 	x->b_phase = phase;
-	
-	return (w+4);
 }
 
 void blit_sincGen(t_blit *x) {
@@ -303,21 +291,26 @@ void blit_winGen(double *win, long N) {
 	}
 }
 
-void blit_dsp(t_blit *x, t_signal **sp, short *count)
+void blit_dsp64(t_blit *x, t_object *dsp64, short *count, double samplerate, long maxvectorsize, long flags)
 {
-	x->b_fs = sys_getsr();
+	x->b_fs = samplerate;
 	x->b_phase = 0;
 	
 	if (count[0]) { // perform signal based frequency update
-		if (x->b_bandlimit)
-			dsp_add(blit_sigperf, 4, sp[0]->s_vec, x, sp[1]->s_vec, sp[0]->s_n);
-		else
-			dsp_add(blit_sigperf_a, 4, sp[0]->s_vec, x, sp[1]->s_vec, sp[0]->s_n);
+        if (x->b_bandlimit) {
+            object_method(dsp64, gensym("dsp_add64"), x, blit_sigperf, 0, NULL);
+        }
+        else {
+            object_method(dsp64, gensym("dsp_add64"), x, blit_sigperf_a, 0, NULL);
+        }
+			
 	} else { //perform interrupt based frequency update
-		if (x->b_bandlimit)
-			dsp_add(blit_fltperf, 3, x, sp[1]->s_vec, sp[1]->s_n);
-		else
-			dsp_add(blit_fltperf_a, 3, x, sp[1]->s_vec, sp[1]->s_n);
+		if (x->b_bandlimit) {
+            object_method(dsp64, gensym("dsp_add64"), x, blit_fltperf, 0, NULL);
+        }
+        else {
+            object_method(dsp64, gensym("dsp_add64"), x, blit_fltperf_a, 0, NULL);
+        }
 	}
 	
 }
@@ -362,7 +355,7 @@ void *blit_new(t_symbol *s, long argc, t_atom *argv)
 {
 	t_blit *x = NULL;
 
-	if (x = (t_blit *)object_alloc(blit_class)) {
+    if ((x = (t_blit *)object_alloc(blit_class))) {
 		dsp_setup((t_pxobject *)x,1);
 		outlet_new((t_pxobject *)x, "signal");
 		
