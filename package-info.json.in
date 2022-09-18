@@ -1,0 +1,24 @@
+{
+	"author" : "Mark Cartwright",
+	"description" : "A toolkit of Max objects to use real-time linear predictive coding in creative projects.",
+	"homepatcher" : "lpcToolkitDemo.maxpat",
+	"max_version_min" : "8.0", "max_version_max" : "none",
+	"name" : "@C74_PACKAGE_NAME@",
+	"os" : {
+		"macintosh" : {
+			"platform" : [ "x64", "aarch64" ],
+			"min_version" : "none"
+		},
+		"windows" : {
+			"platform" : [ "x64" ],
+			"min_version" : "none"
+		}
+	},
+	"package_extra" : {
+		"reverse_domain" : "com.markcartwright",
+		"copyright" : "Copyright 2010 Mark Cartwright"
+	},
+	"tags" : [ ],
+	"version" : "@GIT_VERSION_MAJ@.@GIT_VERSION_MIN@.@GIT_VERSION_SUB@",
+	"website" : "http://www.github.com/mcartwright/LPC-Toolkit"
+}
