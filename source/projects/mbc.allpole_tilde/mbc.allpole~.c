@@ -26,8 +26,8 @@ typedef struct _allpole
 	t_mbcfloat* 				a_aBuff;		//filter coeff input buffer
 	t_mbcfloat* 				a_y;			//filter memory
 	t_mbcfloat* 				a_tempVec;		//temporary buff for vector math
-	float 						a_a1;			//deemph coeff
-	float 						a_y1;			//deemph filter memory
+	double 						a_a1;			//deemph coeff
+	double 						a_y1;			//deemph filter memory
 	t_mbcfloat* 				a_Ar;			//tube areas
 	t_mbcfloat**				a_A;			//for parcor to coeff conversion
 	t_mbcfloat*					a_K;			//parcor coefficients
@@ -71,9 +71,9 @@ void allpole_init(t_allpole *x);
 void allpole_free(t_allpole *x);
 void allpole_free_arrays(t_allpole *x);
 void allpole_clear(t_allpole *x);
-static void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out);
-static void allpole_solveForFiltCoefs(t_allpole* x, int order);
-static void allpole_deemphFilter(t_allpole *x, int N, double* vec);
+static inline void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out);
+static inline void allpole_solveForFiltCoefs(t_allpole* x, int order);
+static inline void allpole_deemphFilter(t_allpole *x, int N, double* vec);
 
 //////////////////////// global class pointer variable
 void *allpole_class;
@@ -192,8 +192,8 @@ void allpole_perf_parcor(t_allpole *x, t_object *dsp64, double **ins, long numin
 	
 	for (n=0; n < N; n++)
 	{
-		if(IS_NAN_FLOAT(G_n[n])) G_n[n] = 0.0;
-		if(IS_NAN_FLOAT(coeffIn[n])) coeffIn[n] = 0.0;
+		if(IS_NAN_DOUBLE(G_n[n])) G_n[n] = 0.0;
+		if(IS_NAN_DOUBLE(coeffIn[n])) coeffIn[n] = 0.0;
 	}
 	
 	//look at coefficient index, if not zeros, buffer in coefficients
@@ -239,8 +239,8 @@ void allpole_perf_parcorI(t_allpole *x, t_object *dsp64, double **ins, long numi
 	
 	for (n=0; n < N; n++)
 	{
-		if(IS_NAN_FLOAT(G_n[n])) G_n[n] = 0.0;
-		if(IS_NAN_FLOAT(coeffIn[n])) coeffIn[n] = 0.0;
+		if(IS_NAN_DOUBLE(G_n[n])) G_n[n] = 0.0;
+		if(IS_NAN_DOUBLE(coeffIn[n])) coeffIn[n] = 0.0;
 	}
 	
 	//look at coefficient index, if not zeros, buffer in coefficients
@@ -974,7 +974,7 @@ void *allpole_new(t_symbol *s, long argc, t_atom *argv)
 	}
 	return (x);
 }
-void allpole_deemphFilter(t_allpole *x, int N, double* vec)
+inline void allpole_deemphFilter(t_allpole *x, int N, double* vec)
 {
 	int n;
 	
@@ -990,7 +990,7 @@ void allpole_deemphFilter(t_allpole *x, int N, double* vec)
 	x->a_y1 = y1;
 }
 
-void allpole_solveForFiltCoefs(t_allpole* x, int order)
+inline void allpole_solveForFiltCoefs(t_allpole* x, int order)
 {
 	int i, i1, ji, j;
 	
@@ -1016,7 +1016,7 @@ void allpole_solveForFiltCoefs(t_allpole* x, int order)
 }
 
 #if defined(MBC_VDSP)
-void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out)
+inline void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out)
 {
 	int n, i;
 	t_mbcfloat val;
@@ -1033,7 +1033,7 @@ void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* o
 	}
 }
 #else
-void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out)
+inline void allpole_highOrdFilter(t_allpole* x, int N, int order, double* in, double* out)
 {
 	int n, i;
 	t_mbcfloat val;
