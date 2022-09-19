@@ -235,7 +235,7 @@ void allpole_perf_parcorI(t_allpole *x, t_object *dsp64, double **ins, long numi
 	int N = sampleframes;
 	int order = x->a_order;
 	int i, n;
-	float interpDiv; //interpolation denominator
+	double interpDiv; //interpolation denominator
 	
 	for (n=0; n < N; n++)
 	{
@@ -823,10 +823,10 @@ void allpole_dsp64(t_allpole *x, t_object *dsp64, short *count, double samplerat
 
 void allpole_interp(t_allpole *x, t_floatarg interp) {
 
-	x->a_interp = (float)interp;
+	x->a_interp = interp;
 	int i;
 	int order = x->a_order;
-	float interpDiv;
+	double interpDiv;
 	
 	switch (x->a_coeffType) {
 			case CT_FILTER:
@@ -978,8 +978,8 @@ inline void allpole_deemphFilter(t_allpole *x, int N, double* vec)
 {
 	int n;
 	
-	float a1 = x->a_a1;
-	float y1 = x->a_y1;
+	double a1 = x->a_a1;
+	double y1 = x->a_y1;
 	
 	for (n=N; n!=0; n--) 
 	{
